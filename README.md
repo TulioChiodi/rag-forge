@@ -51,7 +51,7 @@ docker compose up -d --build
 ```
 
 2. Access the services:
-- Web UI: `http://localhost:8501`
+- Web UI: `http://0.0.0.0:8501`
 - API Documentation: `http://localhost:8000/docs`
 - Elasticsearch: `http://localhost:9200`
 
@@ -69,7 +69,7 @@ You can interact with the system either through the Web UI or directly via the A
 
 1. Open the Streamlit interface in your browser:
 ```
-http://localhost:8501
+http://0.0.0.0:8501
 ```
 
 2. Use the intuitive interface to:
@@ -146,7 +146,7 @@ streamlit run src/ui/main.py
 
 The services will be available at:
 - API: http://localhost:8000
-- UI: http://localhost:8501
+- UI: http://0.0.0.0:8501
 - Elasticsearch: http://localhost:9200
 
 ## Future Improvements
