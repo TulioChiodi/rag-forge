@@ -141,7 +141,7 @@ docker run -d \
 python -m src.main
 
 # Terminal 2: Run the Streamlit UI
-streamlit run src/ui/main.py
+streamlit run streamlit_app/app.py 
 ```
 
 The services will be available at:
