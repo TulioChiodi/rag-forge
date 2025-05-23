@@ -117,7 +117,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # For UI development (Streamlit)
-pip install -r requirements-ui.txt
+pip install -r ui-requirements.txt
 ```
 
 4. Setup Elasticsearch:
