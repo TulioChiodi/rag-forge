@@ -1,0 +1,63 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - ES_URL=http://es:9200
+      - APITALLY_CLIENT_ID=disabled
+    env_file:
+      - .env
+    depends_on:
+      es:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tractian_network
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - tractian_network
+
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - tractian_network
+
+volumes:
+  esdata:
+
+networks:
+  tractian_network:
+    driver: bridge 
