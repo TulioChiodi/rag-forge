@@ -47,7 +47,7 @@ The project includes three services:
 
 1. Build and start all services:
 ```bash
-docker compose up -d --build
+docker compose up --build
 ```
 
 2. Access the services:
