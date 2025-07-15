@@ -1,4 +1,4 @@
-# Tractian RAG API
+# RAG API
 
 A Retrieval Augmented Generation (RAG) API that allows users to upload PDF documents and ask questions about their content using natural language. The system uses OpenAI embeddings and Elasticsearch for efficient document retrieval, combined with LLM-powered question answering.
 
