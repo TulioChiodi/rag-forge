@@ -15,7 +15,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - tractian_network
+      - rag_forge_network
 
   ui:
     build:
@@ -32,7 +32,7 @@ services:
         condition: service_started
     restart: unless-stopped
     networks:
-      - tractian_network
+      - rag_forge_network
 
   es:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.1
@@ -46,18 +46,22 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
+      test:
+        [
+          "CMD-SHELL",
+          'curl -s http://localhost:9200/_cluster/health | grep -vq ''"status":"red"''',
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 30s
     restart: unless-stopped
     networks:
-      - tractian_network
+      - rag_forge_network
 
 volumes:
   esdata:
 
 networks:
-  tractian_network:
-    driver: bridge 
+  rag_forge_network:
+    driver: bridge

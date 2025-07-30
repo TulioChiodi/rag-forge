@@ -5,3 +5,7 @@ venv/
 .env
 
 notebooks/
+files/
+documents/
+data/
+plugins/

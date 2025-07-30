@@ -1,17 +1,23 @@
-import os
 import asyncio
-import aiofiles
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, HTTPException
 from pathlib import Path
 from typing import List, Tuple
 
-from src.config import settings
-from src.schemas import QuestionRequest, QuestionResponse, DocumentResponse, HealthCheckResponse
-from src.ingest import process_document
-from src.rag import rag_answer
-from src.logging_conf import logger
+import aiofiles
+from fastapi import FastAPI, File, HTTPException, UploadFile
+
 from src.es_client import ESClient
+from src.ingest import process_document
+from src.logging_conf import logger
+from src.rag import rag_answer
+from src.schemas import (
+    DocumentResponse,
+    HealthCheckResponse,
+    QuestionRequest,
+    QuestionResponse,
+)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,38 +30,34 @@ async def lifespan(app: FastAPI):
         await ESClient.close()
         logger.info("Closed Elasticsearch client connection")
 
+
 app = FastAPI(
-    title="Tractian Challenge - PDF RAG API",
+    title="RAG-Forge API",
     description="""
 PDF RAG (Retrieval Augmented Generation) API
 
-This API allows you to:  
-• Upload PDF documents for processing and indexing  
-• Ask questions about the uploaded documents using natural language  
-• Check system health and status  
+This API allows you to:
+• Upload PDF documents for processing and indexing
+• Ask questions about the uploaded documents using natural language
+• Check system health and status
 
-Key Features:  
-• Document Processing: Supports multiple PDF uploads with concurrent processing  
-• Question Answering: Uses RAG to provide accurate answers based on uploaded documents  
+Key Features:
+• Document Processing: Supports multiple PDF uploads with concurrent processing
+• Question Answering: Uses RAG to provide accurate answers based on uploaded documents
 • Health Monitoring: Real-time system health checks
     """,
     version="0.1.0",
     lifespan=lifespan,
     openapi_tags=[
-        {
-            "name": "Health",
-            "description": "System health monitoring endpoints"
-        },
+        {"name": "Health", "description": "System health monitoring endpoints"},
         {
             "name": "Documents",
-            "description": "Document upload and processing endpoints"
+            "description": "Document upload and processing endpoints",
         },
-        {
-            "name": "Questions",
-            "description": "Question answering endpoints using RAG"
-        }
-    ]
+        {"name": "Questions", "description": "Question answering endpoints using RAG"},
+    ],
 )
+
 
 @app.get(
     "/health",
@@ -72,20 +74,20 @@ Key Features:
                             "value": {
                                 "status": "green",
                                 "message": "Service is healthy",
-                                "timestamp": "2024-03-20T10:00:00-03:00"
-                            }
+                                "timestamp": "2024-03-20T10:00:00-03:00",
+                            },
                         },
                         "degraded": {
                             "summary": "Degraded System",
                             "value": {
                                 "status": "yellow",
                                 "message": "Service is degraded",
-                                "timestamp": "2024-03-20T10:00:00-03:00"
-                            }
-                        }
+                                "timestamp": "2024-03-20T10:00:00-03:00",
+                            },
+                        },
                     }
                 }
-            }
+            },
         },
         503: {
             "description": "System is unhealthy",
@@ -95,36 +97,34 @@ Key Features:
                         "detail": {
                             "status": "red",
                             "message": "Service is unavailable",
-                            "timestamp": "2024-03-20T10:00:00-03:00"
+                            "timestamp": "2024-03-20T10:00:00-03:00",
                         }
                     }
                 }
-            }
-        }
-    }
+            },
+        },
+    },
 )
 async def health_check():
     """Check system health status.
-    
+
     Checks the health of the system components including:
     - Elasticsearch connection and cluster status
     - Index existence and status
-    
+
     Returns:
         HealthCheckResponse: Health status information
-        
+
     Raises:
         HTTPException: 503 error if the system is in an unhealthy state
     """
     health_info = await ESClient.check_health()
-    
+
     if health_info["status"] == "red":
-        raise HTTPException(
-            status_code=503,
-            detail=health_info
-        )
-    
+        raise HTTPException(status_code=503, detail=health_info)
+
     return HealthCheckResponse(**health_info)
+
 
 @app.post(
     "/documents",
@@ -142,8 +142,8 @@ async def health_check():
                                 "message": "Documents processed successfully",
                                 "documents_indexed": 2,
                                 "total_chunks": 45,
-                                "failed_files": []
-                            }
+                                "failed_files": [],
+                            },
                         },
                         "partial_success": {
                             "summary": "Some documents failed",
@@ -151,12 +151,12 @@ async def health_check():
                                 "message": "Some documents failed to process",
                                 "documents_indexed": 1,
                                 "total_chunks": 20,
-                                "failed_files": ["invalid.txt (not a PDF)"]
-                            }
-                        }
+                                "failed_files": ["invalid.txt (not a PDF)"],
+                            },
+                        },
                     }
                 }
-            }
+            },
         },
         400: {
             "description": "Invalid request",
@@ -166,24 +166,24 @@ async def health_check():
                         "detail": "No documents were processed successfully. Failures: manual1.pdf (processing error)"
                     }
                 }
-            }
-        }
-    }
+            },
+        },
+    },
 )
 async def upload_documents(
-    files: List[UploadFile] = File(
+    files: List[UploadFile] = File(  # noqa: B008
         ...,
-        description="One or more PDF files to upload and process. Only PDF files are accepted."
-    )
+        description="One or more PDF files to upload and process. Only PDF files are accepted.",
+    ),
 ):
     """Upload and process PDF documents.
-    
+
     The documents will be:
     1. Validated for PDF format
     2. Split into chunks for better processing
     3. Embedded using OpenAI's text-embedding-3-large model
     4. Indexed in Elasticsearch for retrieval
-    
+
     Example Usage with curl:
     ```bash
     curl -X POST "http://localhost:8000/documents" \\
@@ -192,21 +192,23 @@ async def upload_documents(
          -F "files=@manual1.pdf" \\
          -F "files=@manual2.pdf"
     ```
-        
+
     Returns:
         DocumentResponse: Processing results including success/failure information
-        
+
     Raises:
         HTTPException: 400 error if no documents were processed successfully
     """
-    logger.info(f"Document upload request received - {len(files)} files: {[f.filename for f in files]}")
-    
+    logger.info(
+        f"Document upload request received - {len(files)} files: {[f.filename for f in files]}"
+    )
+
     if not files:
         return DocumentResponse(
             message="No documents were provided. Please upload at least one PDF file.",
             documents_indexed=0,
             total_chunks=0,
-            failed_files=[]
+            failed_files=[],
         )
 
     failed_files = []
@@ -214,23 +216,25 @@ async def upload_documents(
 
     # First validate all files
     for file in files:
-        if not file.filename.lower().endswith('.pdf'):
+        if not file.filename.lower().endswith(".pdf"):
             logger.warning(f"Skipping non-PDF file: {file.filename}")
             failed_files.append(f"{file.filename} (not a PDF)")
             continue
         valid_files.append(file)
-    
+
     if not valid_files:
         return DocumentResponse(
             message="No valid PDF files were provided. Please upload PDF files only.",
             documents_indexed=0,
             total_chunks=0,
-            failed_files=failed_files
+            failed_files=failed_files,
         )
 
     async def process_single_file(file: UploadFile) -> Tuple[int, int]:
         try:
-            async with aiofiles.tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+            async with aiofiles.tempfile.NamedTemporaryFile(
+                delete=False, suffix=".pdf"
+            ) as tmp:
                 content = await file.read()
                 await tmp.write(content)
                 tmp_path = Path(tmp.name)
@@ -253,14 +257,12 @@ async def upload_documents(
             return 0, 0
 
     # Process all valid files concurrently
-    results = await asyncio.gather(
-        *[process_single_file(file) for file in valid_files]
-    )
-    
+    results = await asyncio.gather(*[process_single_file(file) for file in valid_files])
+
     # Aggregate results
     total_docs = sum(docs for docs, _ in results)
     total_chunks = sum(chunks for _, chunks in results)
-    
+
     logger.info(
         f"Document upload completed - {total_docs} docs, {total_chunks} chunks. "
         f"Failed files: {len(failed_files)}"
@@ -269,15 +271,18 @@ async def upload_documents(
     if total_docs == 0 and failed_files:
         raise HTTPException(
             status_code=400,
-            detail=f"No documents were processed successfully. Failures: {', '.join(failed_files)}"
+            detail=f"No documents were processed successfully. Failures: {', '.join(failed_files)}",
         )
 
     return DocumentResponse(
-        message="Documents processed successfully" if not failed_files else "Some documents failed to process",
+        message="Documents processed successfully"
+        if not failed_files
+        else "Some documents failed to process",
         documents_indexed=total_docs,
         total_chunks=total_chunks,
-        failed_files=failed_files
+        failed_files=failed_files,
     )
+
 
 @app.post(
     "/question",
@@ -296,31 +301,31 @@ async def upload_documents(
                                 "chunks": [
                                     "Monthly maintenance checklist: 1. Inspect all moving parts for wear and tear 2. Lubricate bearings and joints 3. Check and record sensor readings",
                                     "Quarterly maintenance requirements include full calibration of all sensors and verification of safety systems.",
-                                    "Annual maintenance must be performed by certified technicians and includes complete filter replacement and system overhaul."
-                                ]
-                            }
+                                    "Annual maintenance must be performed by certified technicians and includes complete filter replacement and system overhaul.",
+                                ],
+                            },
                         },
                         "no_context": {
                             "summary": "Answer when no relevant context found",
                             "value": {
                                 "answer": "I could not find specific information about maintenance procedures in the uploaded documents. Please ensure relevant maintenance manuals have been uploaded.",
-                                "chunks": []
-                            }
-                        }
+                                "chunks": [],
+                            },
+                        },
                     }
                 }
-            }
+            },
         },
-    }
+    },
 )
 async def ask_question(request: QuestionRequest):
     """Ask a natural language question about the uploaded documents.
-    
+
     The system will:
     1. Convert your question into an embedding
     2. Find the most relevant document chunks
     3. Use RAG with a language model to generate an accurate answer
-    
+
     Example Usage with curl:
     ```bash
     curl -X POST "http://localhost:8000/question" \\
@@ -328,36 +333,40 @@ async def ask_question(request: QuestionRequest):
          -H "Content-Type: application/json" \\
          -d '{"question": "What are the maintenance procedures for the equipment?"}'
     ```
-    
+
     Example Usage with Swagger UI:
     ```json
     {
       "question": "What are the maintenance procedures for the equipment?"
     }
     ```
-    
+
     Note:
         Documents must be uploaded first using the /documents endpoint before asking questions.
-    
+
     Args:
         request (QuestionRequest): The question to ask about the documents
-        
+
     Returns:
         QuestionResponse: The answer and relevant document chunks used
-        
+
     Raises:
         HTTPException: 500 error if there's an internal error processing the question
     """
     logger.info(f"Question received - Length: {len(request.question)}")
-    
+
     try:
         answer, chunks = await rag_answer(request.question)
-        logger.info(f"Question answered successfully - Answer length: {len(answer)}, Chunks used: {len(chunks)}")
+        logger.info(
+            f"Question answered successfully - Answer length: {len(answer)}, Chunks used: {len(chunks)}"
+        )
         return QuestionResponse(answer=answer, chunks=chunks)
     except Exception as e:
         logger.error(f"Error answering question: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True) 
+
+    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)

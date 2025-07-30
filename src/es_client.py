@@ -1,16 +1,19 @@
-from elasticsearch import AsyncElasticsearch, NotFoundError
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Any, Dict, Optional
+
+from elasticsearch import AsyncElasticsearch
 from zoneinfo import ZoneInfo
-from typing import Optional, Dict, Any
-import asyncio
+
 from src.config import settings
 from src.logging_conf import logger
+
 
 class ESClient:
     _instance: Optional[AsyncElasticsearch] = None
     _lock = asyncio.Lock()
-    
+
     @classmethod
     async def get_client(cls) -> AsyncElasticsearch:
         """Get or create Elasticsearch client instance."""
@@ -18,9 +21,7 @@ class ESClient:
             async with cls._lock:
                 if not cls._instance:
                     cls._instance = AsyncElasticsearch(
-                        hosts=[settings.ES_URL],
-                        request_timeout=30,
-                        max_retries=3
+                        hosts=[settings.ES_URL], request_timeout=30, max_retries=3
                     )
                     # Create index if it doesn't exist
                     await cls.create_index()
@@ -42,14 +43,16 @@ class ESClient:
                                     "type": "dense_vector",
                                     "dims": settings.EMBEDDING_DIMENSIONS,
                                     "index": True,
-                                    "similarity": "cosine"
+                                    "similarity": "cosine",
                                 },
-                                "source": {"type": "keyword"}
+                                "source": {"type": "keyword"},
                             }
                         }
-                    }
+                    },
                 )
-                logger.info(f"Created index {settings.ES_INDEX} with vector search mappings")
+                logger.info(
+                    f"Created index {settings.ES_INDEX} with vector search mappings"
+                )
         except Exception as e:
             logger.error(f"Failed to create index: {str(e)}")
             raise
@@ -64,7 +67,7 @@ class ESClient:
     @classmethod
     async def is_index_empty(cls) -> bool:
         """Check if the index is empty or doesn't exist.
-        
+
         Returns:
             bool: True if index doesn't exist or is empty, False otherwise
         """
@@ -73,7 +76,7 @@ class ESClient:
             # First check if index exists
             if not await client.indices.exists(index=settings.ES_INDEX):
                 return True
-                
+
             # Then check document count
             result = await client.count(index=settings.ES_INDEX)
             return result["count"] == 0
@@ -86,31 +89,36 @@ class ESClient:
         """Check Elasticsearch and index health."""
         try:
             client = await cls.get_client()
-            
+
             # Basic cluster health check
             cluster_health = await client.cluster.health()
             index_exists = await client.indices.exists(index=settings.ES_INDEX)
-            
+
             if not index_exists:
                 return {
                     "status": "red",
                     "message": f"Index {settings.ES_INDEX} does not exist",
-                    "timestamp": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat()
+                    "timestamp": datetime.now(
+                        ZoneInfo("America/Sao_Paulo")
+                    ).isoformat(),
                 }
-            
+
             return {
                 "status": cluster_health["status"],
-                "message": "Service is healthy" if cluster_health["status"] in ["green", "yellow"] else "Service is degraded",
-                "timestamp": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat()
+                "message": "Service is healthy"
+                if cluster_health["status"] in ["green", "yellow"]
+                else "Service is degraded",
+                "timestamp": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Health check failed: {str(e)}")
             return {
                 "status": "red",
                 "message": "Service is unavailable",
-                "timestamp": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat()
+                "timestamp": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat(),
             }
+
 
 @asynccontextmanager
 async def get_es_client():
@@ -120,4 +128,4 @@ async def get_es_client():
         yield client
     except Exception as e:
         logger.error(f"Error with ES client: {str(e)}")
-        raise 
+        raise
